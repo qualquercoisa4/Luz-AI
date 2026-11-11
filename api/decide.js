@@ -7,6 +7,7 @@ module.exports = async function handler(req, res) {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken = process.env.CLOUDFLARE_API_TOKEN;
   const model = process.env.CLOUDFLARE_MODEL || '@cf/qwen/qwen3.8-27b';
+  res.setHeader('Cache-Control', 'no-store');
 
   if (!accountId || !apiToken) {
     return res.status(500).json({
@@ -34,8 +35,8 @@ module.exports = async function handler(req, res) {
           Authorization: 'Bearer ' + apiToken,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ messages, max_tokens: 320, temperature: 0.25 }),
-        signal: AbortSignal.timeout(25000)
+        body: JSON.stringify({ messages, max_completion_tokens: 600, temperature: 0.2, reasoning_effort: 'medium' }),
+        signal: AbortSignal.timeout(55000)
       }
     );
 
@@ -46,15 +47,20 @@ module.exports = async function handler(req, res) {
     }
 
     const result = data?.result;
-    const answer = typeof result === 'string'
-      ? result
-      : result?.response || result?.choices?.[0]?.message?.content || result?.output?.[0]?.content?.[0]?.text;
-
-    if (typeof answer !== 'string' || !answer.trim()) {
-      return res.status(502).json({ error: 'Cloudflare AI retornou uma resposta vazia ou em formato inesperado.' });
+    const candidates = [
+      typeof result === 'string' ? result : null,
+      result?.response,
+      result?.choices?.[0]?.message?.content,
+      result?.output?.[0]?.content?.[0]?.text,
+      result?.message?.content,
+      result?.content?.[0]?.text
+    ];
+    const answerValue = candidates.find((value) => typeof value === 'string' && value.trim());
+    if (!answerValue) {
+      const shape = result && typeof result === 'object' ? Object.keys(result).join(', ') : typeof result;
+      return res.status(502).json({ error: 'Formato de resposta da Cloudflare não reconhecido. Campos recebidos: ' + (shape || 'nenhum') });
     }
-
-    return res.status(200).json({ ok: true, model, text: answer });
+    return res.status(200).json({ ok: true, model, text: answerValue });
   } catch (error) {
     const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
     return res.status(timeout ? 504 : 502).json({
@@ -62,3 +68,5 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+module.exports.maxDuration = 60;
