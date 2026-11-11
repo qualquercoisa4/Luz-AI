@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
           Authorization: 'Bearer ' + apiToken,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ messages, max_completion_tokens: 600, temperature: 0.2, reasoning_effort: 'medium' }),
+        body: JSON.stringify({ messages, max_tokens: 1400, temperature: 0.2 }),
         signal: AbortSignal.timeout(55000)
       }
     );
@@ -46,11 +46,12 @@ module.exports = async function handler(req, res) {
       return res.status(upstream.status >= 400 ? upstream.status : 502).json({ error: detail });
     }
 
-    const result = data?.result;
+    const result = data?.result ?? data;
     const candidates = [
       typeof result === 'string' ? result : null,
       result?.response,
       result?.choices?.[0]?.message?.content,
+      result?.choices?.[0]?.delta?.content,
       result?.output?.[0]?.content?.[0]?.text,
       result?.message?.content,
       result?.content?.[0]?.text
@@ -60,7 +61,7 @@ module.exports = async function handler(req, res) {
       const shape = result && typeof result === 'object' ? Object.keys(result).join(', ') : typeof result;
       return res.status(502).json({ error: 'Formato de resposta da Cloudflare não reconhecido. Campos recebidos: ' + (shape || 'nenhum') });
     }
-    return res.status(200).json({ ok: true, model, text: answerValue });
+    return res.status(200).json({ ok: true, model, text: answerValue, finish_reason: result?.choices?.[0]?.finish_reason || null });
   } catch (error) {
     const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
     return res.status(timeout ? 504 : 502).json({
@@ -69,4 +70,4 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports.maxDuration = 60;
+module.exports.config = { maxDuration: 60 };
