@@ -182,7 +182,7 @@ function buildSystem(){return `Você é LUZ, um agente autônomo que habita Mesa
 function parseJSON(text){let t=String(text||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();try{return JSON.parse(t)}catch{const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a)return JSON.parse(t.slice(a,b+1));throw new Error('O modelo não retornou JSON válido. Resposta: '+t.slice(0,180))}}
 async function modelRequest(contents){
  if(!isConfigured())throw new Error(provider==='cloudflare'?'Configure CLOUDFLARE_ACCOUNT_ID e CLOUDFLARE_API_TOKEN nas variáveis da Vercel.':'Configure a chave da API na opção API.');
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),55000);
  try{
   if(provider==='cloudflare'){
    const messages=[{role:'system',content:buildSystem()}];
@@ -191,7 +191,7 @@ async function modelRequest(contents){
    try{
     response=await fetch('/api/decide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages,model}),signal:controller.signal});
     data=await response.json();
-   }catch(e){if(e.name==='AbortError')throw new Error('Cloudflare AI não respondeu em 20 segundos.');throw new Error('Falha ao acessar a API da Vercel: '+e.message)}
+   }catch(e){if(e.name==='AbortError')throw new Error('Cloudflare AI não respondeu em 55 segundos.');throw new Error('Falha ao acessar a API da Vercel: '+e.message)}
    if(!response.ok)throw new Error(`Cloudflare AI HTTP ${response.status}: ${data?.error||JSON.stringify(data)}`);
    if(typeof data.text!=='string'||!data.text.trim())throw new Error('A API respondeu sem texto JSON: '+JSON.stringify(data).slice(0,300));
    return data.text;
