@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
   try {
     const upstream = await fetch(
       'https://api.cloudflare.com/client/v4/accounts/' +
-        encodeURIComponent(accountId) + '/ai/run/' + encodeURIComponent(model),
+        encodeURIComponent(accountId) + '/ai/run/' + encodeURIComponent(model).replace(/%2F/g, '/'),
       {
         method: 'POST',
         headers: {
